@@ -173,7 +173,8 @@ public abstract class TBScheduleManager {
 			this.processor.clearAllHasFetchData();
 		}
 	}
-
+	//包含两个操作，一个是更新心跳信息写入zookeeper，写的是不同的目录，不需要线程安全，
+	//另一个是向scheduleCenter注册manager，可能被多个线程同时调用，使用reentranceLock
 	public void rewriteScheduleInfo() throws Exception{
 		registerLock.lock();
 		try{

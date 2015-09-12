@@ -162,6 +162,8 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
 				} else {
 					return null;
 				}
+				//多余的判断，因为从队列中拿任务是被lockFetchId锁保护的，所以只有一个thread对list进行操作。
+				//也只有一个thread可以将拿到的任务放入runningTask队列中
 				if (this.isDealing(result) == false) {
 					return result;
 				}
@@ -221,6 +223,7 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
      * 装载数据
      * @return
      */
+	//当装载数据被调用时，说明Manager的任务队列已空，将isSleep标志位置为true
 	protected int loadScheduleData() {
 		lockLoadData.lock();
 		try {
@@ -234,7 +237,7 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
 						logger.trace("处理完一批数据后休眠："
 								+ this.taskTypeInfo.getSleepTimeInterval());
 					}
-					//isSleep被封装在loadScheduleData方法中，此方法被lockLaodData方法锁定，所以isSleep不是临界资源
+					//此方法被lockLaodData方法锁定，只有一个线程可以修改sleep标志位
 					this.isSleeping = true;
 					Thread.sleep(taskTypeInfo.getSleepTimeInterval());
 					this.isSleeping = false;
@@ -310,7 +313,6 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
 				if (this.isMutilTask == false) {
 					this.maybeRepeatTaskList.add((T) tmpList[i]);
 				} else {
-                    //可以批处理的情况下，每个task实际上是一个List
 					T[] aTasks = (T[]) tmpList[i];
 					for (int j = 0; j < aTasks.length; j++) {
 						this.maybeRepeatTaskList.add(aTasks[j]);
@@ -348,6 +350,7 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
 				}
 				if (executeTask == null ) {
 					//manager中已经没有任务时，主动去dataManager取得自己的任务
+					//保证只有一个线程在取任务，由loadDataLock保护
 					this.loadScheduleData();
 					continue;
 				}

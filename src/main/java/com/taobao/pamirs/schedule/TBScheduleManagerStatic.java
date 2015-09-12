@@ -105,7 +105,7 @@ public class TBScheduleManagerStatic extends TBScheduleManager {
 				return;
 			}
 
-			//重新分配任务
+			//如果是Leader则重新分配任务
 			this.assignScheduleTask();
 
 			//判断是否需要重新加载任务队列，避免任务处理进程不必要的检查和等待
@@ -114,7 +114,10 @@ public class TBScheduleManagerStatic extends TBScheduleManager {
 				this.isNeedReloadTaskItem = tmpBoolean;
 				rewriteScheduleInfo();
 			}
-
+			//要么服务已经停止，要么manager所属的所有processor因为取不到任务全部休眠中，只有processor全部完成了任务时，才会取新的任务
+			//并不是一般的生产者消费者。
+			//isSleep实际上就是processor完成了全部任务的标志位
+			//虽然代码中没有写明，但是这里应该就是从zookeeper中删除任务信息的时机
 			if(this.isPauseSchedule  == true || this.processor != null && processor.isSleeping() == true){
 				//如果服务已经暂停了，则需要重新定时更新 cur_server 和 req_server
 				//如果服务没有暂停，一定不能调用的
@@ -211,6 +214,7 @@ public class TBScheduleManagerStatic extends TBScheduleManager {
 			//重新查询当前服务器能够处理的队列
 			//为了避免在休眠切换的过程中出现队列瞬间的不一致，先清除内存中的队列
 			this.currentTaskItemList.clear();
+			//从调度中心拿回属于此manager的任务，并放在manager的TaskList中交给processor执行
 			this.currentTaskItemList = this.scheduleCenter.reloadDealTaskItem(
 					this.currenScheduleServer.getTaskType(), this.currenScheduleServer.getUuid());
 
