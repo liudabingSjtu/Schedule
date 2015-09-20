@@ -164,6 +164,7 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
 				}
 				//多余的判断，因为从队列中拿任务是被lockFetchId锁保护的，所以只有一个thread对list进行操作。
 				//也只有一个thread可以将拿到的任务放入runningTask队列中
+				//如果取不到任务，某个线程将一直占用锁，其他线程全都在等待
 				if (this.isDealing(result) == false) {
 					return result;
 				}
@@ -225,12 +226,13 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
      */
 	//当装载数据被调用时，说明Manager的任务队列已空，将isSleep标志位置为true
 	protected int loadScheduleData() {
+		//使用锁，保证只有一个线程可以命令manager加载任务
 		lockLoadData.lock();
 		try {
 			if (this.taskList.size() > 0 || this.isStopSchedule == true) { // 判断是否有别的线程已经装载过了。
 				return this.taskList.size();
 			}
-			// 在取数据的过程中开始睡眠
+			// 在取数据的之前先睡眠
 			try {
 				if (this.taskTypeInfo.getSleepTimeInterval() > 0) {
 					if (logger.isTraceEnabled()) {
@@ -251,7 +253,7 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
 			}
 
 			putLastRunningTaskList();// 将running队列的数据拷贝到可能重复的队列中
-
+			//某些任务可能正在被其他线程操作，虽然队列池已经空了，不代表所有任务都已经完成
 			try {
 				List<TaskItemDefine> taskItems = this.scheduleManager
 						.getCurrentScheduleTaskItemList();
@@ -281,6 +283,7 @@ public class TBScheduleProcessorNotSleep<T> implements IScheduleProcessor, Runna
 								logger.debug("没有读取到需要处理的数据,sleep "
 										+ taskTypeInfo.getSleepTimeNoData());
 							}
+							//没取到任务再睡一会儿
 							this.isSleeping = true;
 							Thread.sleep(taskTypeInfo.getSleepTimeNoData());
 							this.isSleeping = false;							
