@@ -205,7 +205,6 @@ public class TBScheduleProcessorSleep<T> implements IScheduleProcessor,Runnable 
 					//按照配置取一定数量的任务
 	              executeTask = this.getScheduleTaskIdMulti();
 	            }
-	            //队列中的任务执行完成后跳出循环，不论成功失败
 	            if(executeTask == null){
 	              break;
 	            }
@@ -292,7 +291,7 @@ public class TBScheduleProcessorSleep<T> implements IScheduleProcessor,Runnable 
 						}
 					}
 					this.m_lockObject.realseThread();
-				} else {// 将当前线程放置到等待队列中。直到有线程装载到了新的任务数据
+				} else {// 将当前线程放置到等待队列中。直到最后一个线程完成了自己的任务，最后一个线程负责重新取任务
 					if(logger.isTraceEnabled()){
 						   logger.trace("不是最后一个线程，sleep");
 					}
